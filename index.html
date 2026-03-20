@@ -3669,6 +3669,101 @@
       }),
     );
 
+/* ─── AIRPLANE SOUND ─── */
+    (function initPlaneSound() {
+      function playPlaneEngine(duration) {
+        try {
+          const actx = new (window.AudioContext || window.webkitAudioContext)();
+
+          // ── Engine hum — low oscillator ──
+          const osc1 = actx.createOscillator();
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(55, actx.currentTime);
+          osc1.frequency.linearRampToValueAtTime(75, actx.currentTime + duration * 0.5);
+          osc1.frequency.linearRampToValueAtTime(50, actx.currentTime + duration);
+
+          // ── Engine hum layer 2 ──
+          const osc2 = actx.createOscillator();
+          osc2.type = 'sawtooth';
+          osc2.frequency.setValueAtTime(110, actx.currentTime);
+          osc2.frequency.linearRampToValueAtTime(145, actx.currentTime + duration * 0.5);
+          osc2.frequency.linearRampToValueAtTime(100, actx.currentTime + duration);
+
+          // ── Jet whoosh noise ──
+          const bufferSize = actx.sampleRate * duration;
+          const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+          const noise = actx.createBufferSource();
+          noise.buffer = buffer;
+
+          // Bandpass filter para sa jet whoosh
+          const bandpass = actx.createBiquadFilter();
+          bandpass.type = 'bandpass';
+          bandpass.frequency.setValueAtTime(800, actx.currentTime);
+          bandpass.frequency.linearRampToValueAtTime(1200, actx.currentTime + duration * 0.4);
+          bandpass.frequency.linearRampToValueAtTime(600, actx.currentTime + duration);
+          bandpass.Q.value = 0.8;
+
+          // Highpass para sa air rushing sound
+          const highpass = actx.createBiquadFilter();
+          highpass.type = 'highpass';
+          highpass.frequency.value = 400;
+
+          // ── Gain envelopes — Doppler-like fade in/out ──
+          const engineGain = actx.createGain();
+          engineGain.gain.setValueAtTime(0, actx.currentTime);
+          engineGain.gain.linearRampToValueAtTime(0.18, actx.currentTime + duration * 0.12); // fade in
+          engineGain.gain.setValueAtTime(0.18, actx.currentTime + duration * 0.55);
+          engineGain.gain.linearRampToValueAtTime(0, actx.currentTime + duration); // fade out
+
+          const whooshGain = actx.createGain();
+          whooshGain.gain.setValueAtTime(0, actx.currentTime);
+          whooshGain.gain.linearRampToValueAtTime(0.12, actx.currentTime + duration * 0.1);
+          whooshGain.gain.setValueAtTime(0.12, actx.currentTime + duration * 0.6);
+          whooshGain.gain.linearRampToValueAtTime(0, actx.currentTime + duration);
+
+          // ── Connect ──
+          osc1.connect(engineGain);
+          osc2.connect(engineGain);
+          engineGain.connect(actx.destination);
+
+          noise.connect(bandpass);
+          bandpass.connect(highpass);
+          highpass.connect(whooshGain);
+          whooshGain.connect(actx.destination);
+
+          // ── Start / Stop ──
+          osc1.start(actx.currentTime);
+          osc1.stop(actx.currentTime + duration);
+          osc2.start(actx.currentTime);
+          osc2.stop(actx.currentTime + duration);
+          noise.start(actx.currentTime);
+          noise.stop(actx.currentTime + duration);
+
+          setTimeout(() => actx.close(), (duration + 0.5) * 1000);
+        } catch(e) {
+          // Silent fail
+        }
+      }
+
+      // Plane animation is 18s — sync sound with it
+      function schedulePlaneSound() {
+        // Delay slightly para mag-sync sa plane appearance (5% ng 18s = 0.9s)
+        setTimeout(() => {
+          playPlaneEngine(16); // 16s sound — fade in/out para sa 18s flight
+        }, 900);
+
+        // Uulitin tuwing 18s — same as planeFly animation duration
+        setInterval(() => {
+          setTimeout(() => playPlaneEngine(16), 900);
+        }, 18000);
+      }
+
+      // Start after loader
+      setTimeout(schedulePlaneSound, 2000);
+    })();
+
     /* ─── LIGHTNING EFFECT ─── */
     (function initLightning() {
       const canvas = document.getElementById('lightningCanvas');
