@@ -2200,16 +2200,34 @@
         opacity: 0;
       }
     }
+@keyframes shieldPulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
 
-    @keyframes shieldPulse {
-
-      0%,
-      100% {
-        opacity: 0.6;
+    /* ── MOBILE HERO RESPONSIVE ── */
+    @media (max-width: 991px) {
+      .hero-eyebrow, .hero-name, .hero-role,
+      .hero-bio, .hero-meta, .hero-cta {
+        max-width: 57% !important;
       }
-
-      50% {
-        opacity: 1;
+    }
+    @media (max-width: 767px) {
+      .hero-eyebrow, .hero-name, .hero-role,
+      .hero-bio, .hero-meta, .hero-cta {
+        max-width: 55% !important;
+      }
+    }
+    @media (max-width: 575px) {
+      .hero-eyebrow, .hero-name, .hero-role,
+      .hero-bio, .hero-meta, .hero-cta {
+        max-width: 53% !important;
+      }
+    }
+    @media (max-width: 400px) {
+      .hero-eyebrow, .hero-name, .hero-role,
+      .hero-bio, .hero-meta, .hero-cta {
+        max-width: 50% !important;
       }
     }
   </style>
@@ -2276,6 +2294,8 @@
     <canvas id="moleculeCanvas" aria-hidden="true"></canvas>
     <div class="hero-wash"></div>
     <div class="hero-wash2"></div>
+    <!-- LIGHTNING EFFECT -->
+    <canvas id="lightningCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;opacity:0.85;"></canvas>
     <!-- SOLDIERS DEFENDING PROFILE -->
     <div id="soldierSquad" style="
           position: absolute;
@@ -3641,13 +3661,150 @@
         btn.querySelector("span").textContent = "Send Message";
       });
 
-    /* ─── NAVBAR COLLAPSE ON LINK CLICK (mobile) ─── */
+   /* ─── NAVBAR COLLAPSE ON LINK CLICK (mobile) ─── */
     $$(".nav-link-custom").forEach((a) =>
       a.addEventListener("click", () => {
         const collapse = bootstrap.Collapse.getInstance($("#navbarContent"));
         if (collapse) collapse.hide();
       }),
     );
+
+    /* ─── LIGHTNING EFFECT ─── */
+    (function initLightning() {
+      const canvas = document.getElementById('lightningCanvas');
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        canvas.width  = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize, { passive: true });
+
+      function getImageZone() {
+        const w = canvas.width;
+        const h = canvas.height;
+        return { x: w * 0.55, y: 0, width: w * 0.45, height: h };
+      }
+
+     function drawBolt(x1, y1, x2, y2, branches, opacity) {
+        if (branches < 0) return;
+        const points = [[x1, y1]];
+        const segments = 10 + Math.floor(Math.random() * 6);
+        for (let i = 1; i < segments; i++) {
+          const t = i / segments;
+          const mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 100;
+          const my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 50;
+          points.push([mx, my]);
+        }
+        points.push([x2, y2]);
+
+        // Outer thick glow
+        ctx.save();
+        ctx.strokeStyle = `rgba(100,180,255,${opacity * 0.6})`;
+        ctx.lineWidth = 14;
+        ctx.shadowColor = '#60a5fa';
+        ctx.shadowBlur = 40;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.stroke();
+        ctx.restore();
+
+        // Mid glow
+        ctx.save();
+        ctx.strokeStyle = `rgba(147,210,255,${opacity * 0.8})`;
+        ctx.lineWidth = 6;
+        ctx.shadowColor = '#93c5fd';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.stroke();
+        ctx.restore();
+
+        // Bright white core
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.stroke();
+        ctx.restore();
+
+        // Yellow-hot inner core
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,240,150,${opacity * 0.9})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.stroke();
+        ctx.restore();
+
+        if (branches > 0) {
+          const branchIdx = 2 + Math.floor(Math.random() * (points.length - 3));
+          const [bx, by] = points[branchIdx];
+          const angle = Math.random() * Math.PI - Math.PI / 2;
+          const len = 60 + Math.random() * 80;
+          drawBolt(bx, by, bx + Math.cos(angle) * len, by + Math.sin(angle) * len, branches - 1, opacity * 0.75);
+        }
+      }
+
+      function flashOverlay(zone, opacity) {
+        ctx.save();
+        ctx.fillStyle = `rgba(180,220,255,${opacity})`;
+        ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+        ctx.restore();
+      }
+
+      function strike() {
+        const zone = getImageZone();
+        const totalFrames = 22;
+        let f = 0;
+        const startX = zone.x + Math.random() * zone.width;
+        const startY = 0;
+        const endX = zone.x + zone.width * 0.15 + Math.random() * zone.width * 0.7;
+        const endY = zone.height * 0.25 + Math.random() * zone.height * 0.6;
+
+        function frame() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (f === 0 || f === 2 || f === 4) {
+            // Triple flash — very bright
+            flashOverlay(zone, 0.45);
+            drawBolt(startX, startY, endX, endY, 3, 1.0);
+          } else if (f === 1 || f === 3) {
+            // Dim between flashes
+            flashOverlay(zone, 0.15);
+            drawBolt(startX, startY, endX, endY, 1, 0.5);
+          } else if (f < 14) {
+            // Afterglow fade
+            const fade = 1 - (f - 4) / 10;
+            drawBolt(startX, startY, endX, endY, 2, fade * 0.85);
+            flashOverlay(zone, fade * 0.18);
+          }
+          f++;
+          if (f < totalFrames) requestAnimationFrame(frame);
+          else ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        frame();
+      }
+
+      function scheduleStrike() {
+        const delay = 1500 + Math.random() * 2500;
+        setTimeout(() => {
+          strike();
+          if (Math.random() > 0.4) setTimeout(strike, 100 + Math.random() * 180);
+          if (Math.random() > 0.7) setTimeout(strike, 300 + Math.random() * 300);
+          scheduleStrike();
+        }, delay);
+      }
+
+      setTimeout(scheduleStrike, 1500);
+    })();
   </script>
 </body>
 
