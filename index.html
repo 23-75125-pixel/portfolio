@@ -3761,6 +3761,67 @@
         ctx.restore();
       }
 
+// ── THUNDER SOUND via Web Audio API ──
+      function playThunder() {
+        try {
+          const actx = new (window.AudioContext || window.webkitAudioContext)();
+
+          // White noise buffer para sa thunder rumble
+          const bufferSize = actx.sampleRate * 2.5;
+          const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+
+          const noise = actx.createBufferSource();
+          noise.buffer = buffer;
+
+          // Filters para maging thunder sound
+          const lowpass = actx.createBiquadFilter();
+          lowpass.type = 'lowpass';
+          lowpass.frequency.setValueAtTime(180, actx.currentTime);
+          lowpass.frequency.exponentialRampToValueAtTime(60, actx.currentTime + 1.5);
+
+          const highpass = actx.createBiquadFilter();
+          highpass.type = 'highpass';
+          highpass.frequency.value = 30;
+
+          // Gain envelope — malakas sa simula, humina
+          const gainNode = actx.createGain();
+          gainNode.gain.setValueAtTime(0, actx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(1.2, actx.currentTime + 0.02); // crack
+          gainNode.gain.exponentialRampToValueAtTime(0.4, actx.currentTime + 0.3);  // rumble
+          gainNode.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 2.2); // fade
+
+          // Crack sound — short sharp oscillator
+          const crackOsc = actx.createOscillator();
+          crackOsc.type = 'sawtooth';
+          crackOsc.frequency.setValueAtTime(120, actx.currentTime);
+          crackOsc.frequency.exponentialRampToValueAtTime(40, actx.currentTime + 0.08);
+          const crackGain = actx.createGain();
+          crackGain.gain.setValueAtTime(0.8, actx.currentTime);
+          crackGain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.1);
+
+          // Connect nodes
+          noise.connect(lowpass);
+          lowpass.connect(highpass);
+          highpass.connect(gainNode);
+          gainNode.connect(actx.destination);
+
+          crackOsc.connect(crackGain);
+          crackGain.connect(actx.destination);
+
+          noise.start(actx.currentTime);
+          noise.stop(actx.currentTime + 2.5);
+          crackOsc.start(actx.currentTime);
+          crackOsc.stop(actx.currentTime + 0.12);
+
+          // Auto-close context pagkatapos
+          setTimeout(() => actx.close(), 3000);
+        } catch(e) {
+          // Silent fail kung hindi supported
+        }
+      }
+
       function strike() {
         const zone = getImageZone();
         const totalFrames = 22;
@@ -3770,12 +3831,13 @@
         const endX = zone.x + zone.width * 0.15 + Math.random() * zone.width * 0.7;
         const endY = zone.height * 0.25 + Math.random() * zone.height * 0.6;
 
-        function frame() {
+      function frame() {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           if (f === 0 || f === 2 || f === 4) {
             // Triple flash — very bright
             flashOverlay(zone, 0.45);
             drawBolt(startX, startY, endX, endY, 3, 1.0);
+            if (f === 0) playThunder(); // Sound sa unang flash lang
           } else if (f === 1 || f === 3) {
             // Dim between flashes
             flashOverlay(zone, 0.15);
